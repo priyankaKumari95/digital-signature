@@ -1,0 +1,52 @@
+# Render Blueprint — deploys the API (Node web service) and the SPA (static site).
+# MongoDB is NOT hosted on Render; create a free MongoDB Atlas cluster and set
+# MONGO_URI on the API service. See DEPLOYMENT-RENDER.md for full steps.
+
+services:
+  # ---------------- Backend API ----------------
+  - type: web
+    name: digisign-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_RESET_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      - key: MAX_FILE_SIZE_MB
+        value: "15"
+      # Set these in the Render dashboard after the first deploy:
+      - key: MONGO_URI        # from MongoDB Atlas (mongodb+srv://...)
+        sync: false
+      - key: CLIENT_URL       # the static site URL, e.g. https://digisign-web.onrender.com
+        sync: false
+      - key: SERVER_URL       # this API URL, e.g. https://digisign-api.onrender.com
+        sync: false
+
+  # ---------------- Frontend SPA ----------------
+  - type: web
+    name: digisign-web
+    runtime: static
+    rootDir: client
+    # Vite/Tailwind live in devDependencies, so force them to install.
+    buildCommand: npm install --include=dev --legacy-peer-deps && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL     # the API URL + /api, e.g. https://digisign-api.onrender.com/api
+        sync: false
